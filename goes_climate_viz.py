@@ -82,7 +82,8 @@ def download_and_average_goes_images(
     save_format: str = "png",
     use_cache: bool = True,
     cache_dir: str = "/Users/thomas/Documents/GOES-IMAGES",
-    verbose: bool = True
+    verbose: bool = True,
+    minutes: List[int] = [0]
 ) -> np.ndarray:
     """
     Download GOES satellite images and create averaged climatology.
@@ -98,6 +99,7 @@ def download_and_average_goes_images(
         use_cache: Whether to use local file caching (default True)
         cache_dir: Directory for cached .npy files
         verbose: Whether to print progress messages (default False)
+        minutes: List of minutes (0, 30) for sub-hourly sampling (default [0])
         
     Returns:
         numpy array of averaged image data
@@ -121,90 +123,96 @@ def download_and_average_goes_images(
     if not all(0 <= h <= 23 for h in hours):
         raise ValueError("hours must be between 0 and 23")
     
+    if not all(m in [0, 30] for m in minutes):
+        raise ValueError("minutes must be 0 or 30 for 30-minute intervals")
+    
     sat_num = 16 if satellite.lower() == "east" else 17
     
     if verbose:
-        print(f"Downloading GOES-{sat_num} data for {len(dates)} dates, {len(hours)} hours each")
+        total_times = len(dates) * len(hours) * len(minutes)
+        print(f"Downloading GOES-{sat_num} data for {len(dates)} dates, {len(hours)} hours, {len(minutes)} minutes each")
+        print(f"Total time points: {total_times}")
     
     total_image = None
     successful_downloads = 0
     
     for date in dates:
         for hour in hours:
-            try:
-                # Create datetime for specific hour
-                target_time = date.replace(hour=hour, minute=0, second=0, microsecond=0)
+            for minute in minutes:
+                try:
+                    # Create datetime for specific hour and minute
+                    target_time = date.replace(hour=hour, minute=minute, second=0, microsecond=0)
                 
-                # Create cache filename based on parameters
-                cache_key = f"goes{sat_num}_{domain}_{target_time.strftime('%Y%m%d_%H%M')}_c{coarsening_factor}"
-                cache_file = Path(cache_dir) / f"{cache_key}.npy"
+                    # Create cache filename based on parameters
+                    cache_key = f"goes{sat_num}_{domain}_{target_time.strftime('%Y%m%d_%H%M')}_c{coarsening_factor}"
+                    cache_file = Path(cache_dir) / f"{cache_key}.npy"
                 
-                # Check cache first
-                if use_cache and cache_file.exists():
-                    if verbose:
-                        print(f"Loading from cache: {target_time.strftime('%Y-%m-%d %H:%M UTC')}")
-                    data = np.load(cache_file)
-                else:
-                    try:
-                        # Download GOES data in a separate subprocess to avoid goes2go
-                        # memory bloat.  NOTE: I know this is a brutalist approach
-                        manager = mp.Manager()
-                        return_dict = manager.dict()
-                        p = mp.Process(
-                            target=_download_worker,
-                            args=(target_time, sat_num, domain, return_dict),
-                        )
-                        p.start()
-                        p.join()
+                    # Check cache first
+                    if use_cache and cache_file.exists():
+                        if verbose:
+                            print(f"Loading from cache: {target_time.strftime('%Y-%m-%d %H:%M UTC')}")
+                        data = np.load(cache_file)
+                    else:
+                        try:
+                            # Download GOES data in a separate subprocess to avoid goes2go
+                            # memory bloat.  NOTE: I know this is a brutalist approach
+                            manager = mp.Manager()
+                            return_dict = manager.dict()
+                            p = mp.Process(
+                                target=_download_worker,
+                                args=(target_time, sat_num, domain, return_dict),
+                            )
+                            p.start()
+                            p.join()
 
-                        data = return_dict.get("data", None)
-                        if data is None:
-                            if verbose:
-                                print(f"No data available for {target_time}")
-                            continue
-                    except Exception as e:
-                        if "truncated file" in str(e) or "Unable to synchronously open file" in str(e):
-                            if verbose:
-                                print(f"  ❌ Corrupted file detected for {target_time.strftime('%Y-%m-%d %H:%M UTC')}")
-                                print(f"  🗑️  Cleaning up corrupted downloads...")
-                            # Clean up potentially corrupted downloads
-                            data_dir = Path("/Users/thomas/data")
-                            if data_dir.exists():
-                                import shutil
-                                shutil.rmtree(data_dir)
+                            data = return_dict.get("data", None)
+                            if data is None:
                                 if verbose:
-                                    print(f"  ✓ Cleaned up download directory")
-                        if verbose:
-                            print(f"  ❌ Error downloading: {target_time.strftime('%Y-%m-%d %H:%M UTC')}: {e}")
-                        continue
+                                    print(f"No data available for {target_time}")
+                                continue
+                        except Exception as e:
+                            if "truncated file" in str(e) or "Unable to synchronously open file" in str(e):
+                                if verbose:
+                                    print(f"  ❌ Corrupted file detected for {target_time.strftime('%Y-%m-%d %H:%M UTC')}")
+                                    print(f"  🗑️  Cleaning up corrupted downloads...")
+                                # Clean up potentially corrupted downloads
+                                data_dir = Path("/Users/thomas/data")
+                                if data_dir.exists():
+                                    import shutil
+                                    shutil.rmtree(data_dir)
+                                    if verbose:
+                                        print(f"  ✓ Cleaned up download directory")
+                            if verbose:
+                                print(f"  ❌ Error downloading: {target_time.strftime('%Y-%m-%d %H:%M UTC')}: {e}")
+                            continue
                     
-                    # Handle NaN values - preserve RGB channels
-                    # data = np.nan_to_num(data, nan=0.0)  # Already done in subprocess
+                        # Handle NaN values - preserve RGB channels
+                        # data = np.nan_to_num(data, nan=0.0)  # Already done in subprocess
+                        
+                        # Coarsen if requested
+                        if coarsening_factor > 1:
+                            data = coarsen_by_averaging(data, coarsening_factor)
+                        
+                        # Cache the coarsened data
+                        if use_cache:
+                            np.save(cache_file, data)
+                            if verbose:
+                                print(f"Cached coarsened data: {cache_file}")
                     
-                    # Coarsen if requested
-                    if coarsening_factor > 1:
-                        data = coarsen_by_averaging(data, coarsening_factor)
+                    # Initialize total_image on first successful download
+                    if total_image is None:
+                        total_image = data.astype(np.float64)  # Use float64 for accumulation
+                    else:
+                        total_image += data.astype(np.float64)
                     
-                    # Cache the coarsened data
-                    if use_cache:
-                        np.save(cache_file, data)
-                        if verbose:
-                            print(f"Cached coarsened data: {cache_file}")
-                
-                # Initialize total_image on first successful download
-                if total_image is None:
-                    total_image = data.astype(np.float64)  # Use float64 for accumulation
-                else:
-                    total_image += data.astype(np.float64)
-                
-                # Delete current image data from memory
-                del data
-                
-                successful_downloads += 1
-                
-            except Exception as e:
-                print(f"Error downloading {target_time}: {str(e)}")
-                continue
+                    # Delete current image data from memory
+                    del data
+                    
+                    successful_downloads += 1
+                    
+                except Exception as e:
+                    print(f"Error downloading {target_time}: {str(e)}")
+                    continue
     
     if total_image is None:
         raise RuntimeError("No images were successfully downloaded")

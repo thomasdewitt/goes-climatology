@@ -20,9 +20,9 @@ import os
 from goes_climate_viz import download_and_average_goes_images
 
 
-def create_hourly_frames(month, days, hours, satellite, domain, coarsening_factor, cache_dir, verbose=True):
+def create_hourly_frames(month, days, hours, satellite, domain, coarsening_factor, cache_dir, verbose=True, temporal_resolution="hourly"):
     """
-    Create hourly progression frames showing average day cycle.
+    Create hourly/sub-hourly progression frames showing average day cycle.
     
     Args:
         month: Month number (1-12)
@@ -33,9 +33,10 @@ def create_hourly_frames(month, days, hours, satellite, domain, coarsening_facto
         coarsening_factor: Factor to coarsen images
         cache_dir: Directory for cached images
         verbose: Whether to print progress
+        temporal_resolution: "hourly" for 1-hour intervals, "30min" for 30-minute intervals
         
     Returns:
-        List of averaged image arrays for each hour
+        List of averaged image arrays for each time interval
     """
     frames = []
     
@@ -47,18 +48,34 @@ def create_hourly_frames(month, days, hours, satellite, domain, coarsening_facto
     
     month_name = datetime(2000, month, 1).strftime('%B')
     
+    # Determine minutes based on temporal resolution
+    if temporal_resolution == "30min":
+        minutes = [0, 30]
+    else:
+        minutes = [0]
+    
+    total_frames = len(hours) * len(minutes)
+    
     if verbose:
         print(f"Processing {month_name} days {days} across {len(all_dates)} total dates")
         print(f"Years: 2018-2024")
-        print(f"Creating {len(hours)} hourly frames")
+        print(f"Temporal resolution: {temporal_resolution}")
+        print(f"Creating {total_frames} frames ({len(hours)} hours × {len(minutes)} minutes)")
     
-    # Create frames for each hour
+    # Generate time intervals
+    time_intervals = []
     for hour in hours:
+        for minute in minutes:
+            time_intervals.append((hour, minute))
+    
+    # Create frames for each time interval
+    for i, (hour, minute) in enumerate(time_intervals):
         if verbose:
-            print(f"\nCreating frame for hour {hour:02d}Z ({len(all_dates)} dates)")
+            time_str = f"{hour:02d}:{minute:02d}Z"
+            print(f"\nCreating frame {i+1}/{total_frames} for {time_str} ({len(all_dates)} dates)")
         
         try:
-            # Use existing function to average all dates for this hour
+            # Use existing function to average all dates for this time
             averaged_image = download_and_average_goes_images(
                 hours=[hour],
                 dates=all_dates,
@@ -69,12 +86,14 @@ def create_hourly_frames(month, days, hours, satellite, domain, coarsening_facto
                 save_format="png",
                 use_cache=True,
                 cache_dir=cache_dir,
-                verbose=True  # Suppress detailed output
+                verbose=False,  # Suppress detailed output
+                minutes=[minute]
             )
             frames.append(averaged_image)
             
         except Exception as e:
-            print(f"Error creating frame for hour {hour:02d}Z: {e}")
+            time_str = f"{hour:02d}:{minute:02d}Z"
+            print(f"Error creating frame for {time_str}: {e}")
             continue
     
     return frames
@@ -142,7 +161,7 @@ def create_video_from_frames(frames, output_path, filename, fps=None, verbose=Tr
 
 
 
-def main(month=3, days=[1, 10, 20]):
+def main(month=3, days=[1, 10, 20], temporal_resolution="hourly"):
     """Generate average day progression video."""
     
     month_name = datetime(2000, month, 1).strftime('%B')
@@ -150,12 +169,16 @@ def main(month=3, days=[1, 10, 20]):
     print("=" * 70)
     print("GOES Average Day Video Generator")
     print("=" * 70)
-    print(f"Creating video showing hourly progression through average day")
+    print(f"Creating video showing temporal progression through average day")
     print(f"Month: {month_name}")
     print(f"Days: {days}")
-    print(f"Hours: 00Z-23Z (24 frames)")
+    print(f"Temporal resolution: {temporal_resolution}")
+    if temporal_resolution == "30min":
+        print(f"Times: 00:00Z-23:30Z (48 frames)")
+    else:
+        print(f"Hours: 00Z-23Z (24 frames)")
     print(f"Years: 2018-2024 (7 years of data)")
-    print("Total duration: 6 seconds")
+    print("Total duration: ~6 seconds")
     print("=" * 70)
     
     # All hours 00Z through 23Z
@@ -163,7 +186,7 @@ def main(month=3, days=[1, 10, 20]):
     # hours = [1]*24
     
     try:
-        # Create hourly progression frames
+        # Create temporal progression frames
         frames = create_hourly_frames(
             month=month,
             days=days,
@@ -172,7 +195,8 @@ def main(month=3, days=[1, 10, 20]):
             domain="F",
             coarsening_factor=2,
             cache_dir="/Users/thomas/Documents/GOES-IMAGES",
-            verbose=True
+            verbose=True,
+            temporal_resolution=temporal_resolution
         )
         # plt.imshow(frames[1])
         # plt.show()
@@ -180,7 +204,10 @@ def main(month=3, days=[1, 10, 20]):
         
         # Create video filename
         days_str = "_".join(map(str, days))
-        filename = f"goes_east_average_day_{month_name.lower()}_days{days_str}.mp4"
+        if temporal_resolution == "30min":
+            filename = f"goes_east_average_day_{month_name.lower()}_days{days_str}_30min.mp4"
+        else:
+            filename = f"goes_east_average_day_{month_name.lower()}_days{days_str}.mp4"
         
         # Create video
         create_video_from_frames(
@@ -213,6 +240,8 @@ if __name__ == "__main__":
                        help='Month number (1-12, default: 3 for March)')
     parser.add_argument('--days', nargs='+', type=int, default=[1, 10, 20],
                        help='Days to include (default: 1 10 20)')
+    parser.add_argument('--temporal-resolution', choices=['hourly', '30min'], default='hourly',
+                       help='Temporal resolution: hourly (24 frames) or 30min (48 frames)')
     args = parser.parse_args()
     
     # Validate month
@@ -225,5 +254,5 @@ if __name__ == "__main__":
         print("Error: Days must be between 1 and 31")
         sys.exit(1)
     
-    success = main(month=args.month, days=args.days)
+    success = main(month=args.month, days=args.days, temporal_resolution=args.temporal_resolution)
     sys.exit(0 if success else 1)

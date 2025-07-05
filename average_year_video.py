@@ -3,11 +3,12 @@
 Average Year Video Generator
 
 Creates a video showing seasonal progression through moving averages of N days
-across all years 2018-2024. Each frame shows the average of N consecutive dates
-(e.g., 1/1, 1/5, 1/10, 1/15, 1/20, 1/25) across all years, then moves forward
-by one date position for the next frame.
+across all years 2018-2024. Each frame shows the average of N consecutive date
+positions from all odd days (1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31)
+across all years, then moves forward by stride positions for the next frame.
 
-Total video duration: 10 seconds
+More temporal detail than original 6-days-per-month sampling.
+Total video duration: 6 seconds
 """
 
 import numpy as np
@@ -38,19 +39,39 @@ def create_seasonal_frames(n_days, hours, satellite, domain, coarsening_factor, 
     """
     frames = []
     
-    # Create all dates for all years (same as monthly_noon_climatology.py)
+    # Create all dates for all years using all odd days per month
     all_dates_by_position = []
+    
+    # Function to get all odd days for a given month/year
+    def get_odd_days_for_month(year, month):
+        from calendar import monthrange
+        _, days_in_month = monthrange(year, month)
+        return [day for day in range(1, days_in_month + 1) if day % 2 == 1]
+    
     for year in range(2018, 2025):  # 7 years: 2018-2024
         for month in range(1, 13):  # 12 months
-            for day in [1, 5, 10, 15, 20, 25]:  # 6 days per month
+            odd_days = get_odd_days_for_month(year, month)
+            for day in odd_days:
                 all_dates_by_position.append(datetime(year, month, day))
     
-    # Organize dates by position in year (72 positions: 12 months × 6 days)
+    # Organize dates by position in year (variable positions based on odd days)
     # Each position contains dates from all 7 years
     dates_by_year_position = {}
+    
+    # Create position mapping: track cumulative position across months
+    position_counter = 0
+    month_day_to_position = {}
+    
+    # Use a reference year (2020) to establish position mapping
+    for month in range(1, 13):
+        odd_days = get_odd_days_for_month(2020, month)  # Use 2020 as reference
+        for day in odd_days:
+            month_day_to_position[(month, day)] = position_counter
+            position_counter += 1
+    
+    # Now assign positions to all dates
     for date in all_dates_by_position:
-        # Calculate position in year (0-71)
-        position = (date.month - 1) * 6 + ([1, 5, 10, 15, 20, 25].index(date.day))
+        position = month_day_to_position[(date.month, date.day)]
         if position not in dates_by_year_position:
             dates_by_year_position[position] = []
         dates_by_year_position[position].append(date)
@@ -59,13 +80,18 @@ def create_seasonal_frames(n_days, hours, satellite, domain, coarsening_factor, 
     positions = sorted(dates_by_year_position.keys())
     n_positions = len(positions)
     
+    # Calculate stride to get approximately 36-40 frames
+    stride = max(1, n_positions // 40)  # Aim for ~40 frames
+    
     if verbose:
         print(f"Total positions in year: {n_positions}")
         print(f"Moving average window: {n_days} consecutive date positions")
+        print(f"Frame stride: {stride} (every {stride} positions)")
+        print(f"Expected frames: {(n_positions + stride - 1) // stride}")
         print(f"Each position contains dates from {len(dates_by_year_position[positions[0]])} years")
     
     # Create frames using sliding window of N consecutive positions
-    for start_pos in range(0, n_positions, 2):
+    for start_pos in range(0, n_positions, stride):
         # Get N consecutive positions (wrapping around at end of year)
         window_positions = []
         for i in range(n_days):
@@ -80,8 +106,8 @@ def create_seasonal_frames(n_days, hours, satellite, domain, coarsening_factor, 
         if verbose:
             first_date = sorted(frame_dates)[0]
             last_date = sorted(frame_dates)[-1]
-            frame_num = (start_pos // 2) + 1
-            total_frames = (n_positions + 1) // 2
+            frame_num = (start_pos // stride) + 1
+            total_frames = (n_positions + stride - 1) // stride
             print(f"\nFrame {frame_num}/{total_frames}: {len(frame_dates)} dates")
             print(f"  Date range: {first_date.strftime('%m/%d')} to {last_date.strftime('%m/%d')} (all years)")
             print(f"  Positions: {window_positions}")
@@ -172,6 +198,7 @@ def main(n_days=6):
     print("GOES Average Year Video Generator")
     print("=" * 70)
     print("Creating video showing seasonal progression through the year")
+    print(f"Sampling: All odd days per month (enhanced temporal resolution)")
     print(f"Moving average window: {n_days} consecutive date positions")
     print("Years: 2018-2024 (7 years of data)")
     print("Total duration: 6 seconds")
@@ -196,14 +223,14 @@ def main(n_days=6):
         create_video_from_frames(
             frames=frames,
             output_path="average_year_output",
-            filename=f"goes_east_average_year_n{n_days}.mp4",
-            fps=None,  # Auto-calculate for 10s duration
+            filename=f"goes_east_average_year_n{n_days}_odddays.mp4",
+            fps=None,  # Auto-calculate for 6s duration
             verbose=True
         )
         
         print("=" * 70)
         print("✓ Average year video completed successfully!")
-        print(f"✓ Output: average_year_output/goes_east_average_year_n{n_days}.mp4")
+        print(f"✓ Output: average_year_output/goes_east_average_year_n{n_days}_odddays.mp4")
         print("=" * 70)
         
         return True
