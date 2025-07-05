@@ -97,7 +97,7 @@ def create_video_from_frames(frames, output_path, filename, fps=None, verbose=Tr
     
     # Calculate FPS for 6-second duration
     if fps is None:
-        fps = len(frames) / 6.0
+        fps = len(frames) / 6.5     ########### EXACTLY 6 BREAKS VIDEO FOR UNKNOWN REASON ###########
     
     # Create output directory relative to current working directory
     output_path = os.path.join(os.getcwd(), output_path)
@@ -126,6 +126,10 @@ def create_video_from_frames(frames, output_path, filename, fps=None, verbose=Tr
         out = cv2.VideoWriter(filepath, fourcc, fps, (w, h), isColor=True)
         
         for frame in video_frames:
+            # print(np.count_nonzero(np.isnan(frame)), "NaNs in frame")
+            # print('Max value in frame:', np.nanmax(frame))
+            # print('Mean value in frame:', np.nanmean(frame))
+            # print('Mean of first bit:', np.mean(frame[0:10,0:10,:]))
             out.write(frame)
         
         out.release()
@@ -156,6 +160,7 @@ def main(month=3, days=[1, 10, 20]):
     
     # All hours 00Z through 23Z
     hours = list(range(24))
+    # hours = [1]*24
     
     try:
         # Create hourly progression frames
