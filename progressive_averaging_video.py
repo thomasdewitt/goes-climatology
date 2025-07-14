@@ -68,12 +68,17 @@ def create_progressive_frames(all_dates, hours, satellite, domain, coarsening_fa
                 satellite=satellite,
                 coarsening_factor=coarsening_factor,
                 domain=domain,
-                output_path=tempfile.gettempdir(),  # Temporary output (we don't need the PNG)
+                output_path="progressive_video_output/Frames",
                 save_format="png",
                 use_cache=True,
                 cache_dir=cache_dir,
                 verbose=False  # Suppress detailed output
             )
+            # Rename frame output file
+            frame_output = Path("progressive_video_output/Frames") / "goes_east_climate_avg.png"
+            frame_final = Path("progressive_video_output/Frames") / f"progressive_frame_{i+1:02d}_n_images={count}.png"
+            frame_output.rename(frame_final)
+        
             frames.append(averaged_image)
             
         except Exception as e:
@@ -178,7 +183,7 @@ def main():
             satellite="east",
             domain="F",
             coarsening_factor=2,
-            cache_dir="/Users/thomas/Documents/GOES-IMAGES",
+            cache_dir="/Volumes/Thomas/GOES Imagery",
             verbose=True
         )
         

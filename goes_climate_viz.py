@@ -81,7 +81,7 @@ def download_and_average_goes_images(
     output_path: str = "output",
     save_format: str = "png",
     use_cache: bool = True,
-    cache_dir: str = "/Users/thomas/Documents/GOES-IMAGES",
+    cache_dir: str = "/Volumes/Thomas/GOES Imagery",
     verbose: bool = True,
     minutes: List[int] = [0]
 ) -> np.ndarray:
@@ -176,12 +176,12 @@ def download_and_average_goes_images(
                                     print(f"  ❌ Corrupted file detected for {target_time.strftime('%Y-%m-%d %H:%M UTC')}")
                                     print(f"  🗑️  Cleaning up corrupted downloads...")
                                 # Clean up potentially corrupted downloads
-                                data_dir = Path("/Users/thomas/data")
-                                if data_dir.exists():
-                                    import shutil
-                                    shutil.rmtree(data_dir)
-                                    if verbose:
-                                        print(f"  ✓ Cleaned up download directory")
+                                #data_dir = Path("/Users/thomas/data")
+                                #if data_dir.exists():
+                                #    import shutil
+                                #    shutil.rmtree(data_dir)
+                                #    if verbose:
+                                #        print(f"  ✓ Cleaned up download directory")
                             if verbose:
                                 print(f"  ❌ Error downloading: {target_time.strftime('%Y-%m-%d %H:%M UTC')}: {e}")
                             continue

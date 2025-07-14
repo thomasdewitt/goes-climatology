@@ -82,11 +82,11 @@ def create_hourly_frames(month, days, hours, satellite, domain, coarsening_facto
                 satellite=satellite,
                 coarsening_factor=coarsening_factor,
                 domain=domain,
-                output_path='/Users/thomas/Documents/GOES-IMAGES',  # Temporary output
+                output_path='/Volumes/Thomas/GOES Imagery',  # Temporary output
                 save_format="png",
                 use_cache=True,
                 cache_dir=cache_dir,
-                verbose=False,  # Suppress detailed output
+                verbose=True,  # Suppress detailed output
                 minutes=[minute]
             )
             frames.append(averaged_image)
@@ -161,7 +161,7 @@ def create_video_from_frames(frames, output_path, filename, fps=None, verbose=Tr
 
 
 
-def main(month=3, days=[1, 10, 20], temporal_resolution="hourly"):
+def main(month=3, days=[1, 3,5,7,9,11,13,15,17,19,21,23,25,27], temporal_resolution="30min"):
     """Generate average day progression video."""
     
     month_name = datetime(2000, month, 1).strftime('%B')
@@ -182,7 +182,7 @@ def main(month=3, days=[1, 10, 20], temporal_resolution="hourly"):
     print("=" * 70)
     
     # All hours 00Z through 23Z
-    hours = list(range(24))
+    hours =  [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
     # hours = [1]*24
     
     try:
@@ -194,7 +194,7 @@ def main(month=3, days=[1, 10, 20], temporal_resolution="hourly"):
             satellite="east",
             domain="F",
             coarsening_factor=2,
-            cache_dir="/Users/thomas/Documents/GOES-IMAGES",
+            cache_dir="/Volumes/Thomas/GOES Imagery",
             verbose=True,
             temporal_resolution=temporal_resolution
         )
@@ -238,9 +238,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate GOES average day video')
     parser.add_argument('--month', type=int, default=3, 
                        help='Month number (1-12, default: 3 for March)')
-    parser.add_argument('--days', nargs='+', type=int, default=[1, 10, 20],
-                       help='Days to include (default: 1 10 20)')
-    parser.add_argument('--temporal-resolution', choices=['hourly', '30min'], default='hourly',
+    parser.add_argument('--days', nargs='+', type=int, default=[1, 3,5,7,9,11,13,15,17,19,21,23,25,27],
+                       help='Days to include (default: 1, 3,5,7,9,11,13,15,17,19,21,23,25,27)')
+    parser.add_argument('--temporal-resolution', choices=['hourly', '30min'], default='30min',
                        help='Temporal resolution: hourly (24 frames) or 30min (48 frames)')
     args = parser.parse_args()
     

@@ -120,12 +120,17 @@ def create_seasonal_frames(n_days, hours, satellite, domain, coarsening_factor, 
                 satellite=satellite,
                 coarsening_factor=coarsening_factor,
                 domain=domain,
-                output_path=tempfile.gettempdir(),  # Temporary output
+                output_path="average_year_output/Frames", 
                 save_format="png",
                 use_cache=True,
                 cache_dir=cache_dir,
-                verbose=False  # Suppress detailed output
+                verbose=True
             )
+            # Rename noon output file
+            noon_output = Path("average_year_output/Frames") / "goes_east_climate_avg.png"
+            noon_final = Path("average_year_output/Frames") / f"average_year_frame_{frame_dates[0].month}-{frame_dates[0].day}_to_{frame_dates[-1].month}-{frame_dates[-1].day}_n_dates={len(frame_dates)}.png"
+            noon_output.rename(noon_final)
+        
             frames.append(averaged_image)
             
         except Exception as e:
@@ -215,7 +220,7 @@ def main(n_days=6):
             satellite="east",
             domain="F",
             coarsening_factor=2,
-            cache_dir="/Users/thomas/Documents/GOES-IMAGES",
+            cache_dir="/Volumes/Thomas/GOES Imagery",
             verbose=True
         )
         
@@ -246,7 +251,7 @@ if __name__ == "__main__":
     
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Generate GOES average year video')
-    parser.add_argument('--n-days', type=int, default=6, 
+    parser.add_argument('--n-days', type=int, default=15, 
                        help='Number of consecutive days to average (default: 6)')
     args = parser.parse_args()
     
