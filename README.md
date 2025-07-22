@@ -1,10 +1,10 @@
 # GOES Climatology
 
-Python scripts for creating climate visualizations and videos from GOES-16/17 satellite data. Videos and images can be found in the `*_output/` folders.
+Python scripts for creating climate visualizations and videos from GOES-16/17 satellite data, as described [here](https://thomasddewitt.substack.com/p/climate-visualized-from-space). Videos and images can be found in the `*_output/` folders.
 
 **Note**: The `goes_west_/` folder contains full resolution images (~5000x5000 pixels), while other outputs use GOES-East data at half resolution (configurable in scripts).
 
-**Citation**: If you use these visualizations, please cite the associated blog post (link upcoming).
+**Citation**: If you use these visualizations, please cite the associated [blog post](https://thomasddewitt.substack.com/p/climate-visualized-from-space).
 
 ## Requirements
 
@@ -25,5 +25,5 @@ Python scripts for creating climate visualizations and videos from GOES-16/17 sa
 - **Satellite**: GOES-16 (East) and GOES-17 (West)
 - **Instrument**: Advanced Baseline Imager (ABI)
 - **Data provider**: NOAA/NESDIS via AWS Open Data
-- **Access method**: `goes2go` Python library
+- **Access method**: [`goes2go`](https://github.com/blaylockbk/goes2go) Python library
 - **Temporal coverage**: 2018-present (GOES-16 operational)
